@@ -10,8 +10,11 @@ tags:
   - postgresql
   - ai-agent
   - langgraph
+ogImage: assets/postgres-mcp-hero.png
 description: "How I built a Postgres MCP server that connects Claude Desktop to a full SQL optimization pipeline — and what real-world testing revealed about AI tool design."
 ---
+
+![Architecture diagram: Claude Desktop connects via MCP to the Postgres MCP server, which exposes Layer 1 direct database tools and a Layer 2 LangGraph pipeline with a retry loop between review_advice and generate_advice](assets/postgres-mcp-hero.png)
 
 When I started this project, the goal was simple: wrap an existing SQL optimization pipeline so Claude Desktop could use it. What I ended up building was more than a tool wrapper — it's an MCP server that exposes a complete DBA workflow, including a LangGraph agent that can question whether a query problem is being framed correctly.
 
@@ -143,6 +146,8 @@ This is a deeper architectural problem: the advice generation node needs structu
 Postgres-mcp is at v0.1.0 — feature-complete for its current scope. The open issue is the schema hallucination bug in SQL-Surgeon's advice generation node, which requires structured column validation at the pipeline level.
 
 The next project is building an eval framework for SQL-Surgeon: a systematic way to measure whether the pipeline's advice is actually correct, not just syntactically valid. That's a harder problem, and the more interesting one.
+
+If you're working on similar problems — MCP servers, LLM evals, or applied AI in enterprise contexts — I'd love to compare notes. Reach out via [GitHub](https://github.com/RachelHuangZW) or [email](mailto:zhiweih79@gmail.com).
 
 ---
 
