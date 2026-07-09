@@ -2,7 +2,7 @@ import { defineAstroPaperConfig } from "./src/types/config";
 
 export default defineAstroPaperConfig({
   site: {
-    url: "https://your-site.vercel.app/",
+    url: "https://astro-paper-one-tau.vercel.app/",
     title: "Rachel Huang",
     description:
       "I build AI systems where the database side matters — HANA Cloud performance tuning and Applied AI, from LLM agent pipelines to enterprise Graph RAG deployments.",
