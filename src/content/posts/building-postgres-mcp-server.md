@@ -16,23 +16,23 @@ description: "How I built a Postgres MCP server that connects Claude Desktop to 
 
 ![Architecture diagram: Claude Desktop connects via MCP to the Postgres MCP server, which exposes Layer 1 direct database tools and a Layer 2 LangGraph pipeline with a retry loop between review_advice and generate_advice](assets/postgres-mcp-hero.png)
 
-When I started this project, the goal was simple: wrap an existing SQL optimization pipeline so Claude Desktop could use it. What I ended up building was more than a tool wrapper — it's an MCP server that exposes a complete DBA workflow, including a LangGraph pipeline that not only generates optimization advice, but can reject its own recommendations when the evidence doesn't support them.
+When I started this project, the goal was simple: wrap an existing SQL optimization pipeline so Claude Desktop could use it. What I ended up building was more interesting — an MCP server that not only exposes a complete DBA workflow, but knows when the question itself is being asked wrong.
 
-The project is [postgres-mcp](https://github.com/RachelHuangZW/postgres-mcp), an MCP server that connects Claude Desktop to a PostgreSQL database. It exposes six tools: from discovering what's in your database, to understanding slow queries, to finally running a full AI-powered optimization pipeline. This post is about the design decisions behind it and what I learned during the whole process.
+The project is [postgres-mcp](https://github.com/RachelHuangZW/postgres-mcp), an MCP server that connects Claude Desktop to a PostgreSQL database. It exposes six tools: from discovering what's in your database, to understanding slow queries, to running a full AI-powered optimization pipeline. This post is about the design decisions behind it and what I learned during the whole process.
 
 ## What is MCP?
 
-MCP (Model Context Protocol) is a framework that lets Claude call external tools directly. Instead of building a web API that a human manually queries, you register tools with a name and description, and Claude decides when and how to use them based on the user's question.
+MCP (Model Context Protocol) lets Claude call external tools directly. You register tools with a name and description; Claude decides when and how to use them based on the user's question.
 
 The mental model I found most useful: MCP is like a restaurant menu. The AI is the customer — it reads the menu and orders what fits the situation. You're the kitchen. You don't decide what gets ordered; you make sure what's on the menu is accurate and what you serve is correct.
 
-This changes how you think about tool design. The tool description isn't just documentation — it's the signal Claude uses to decide whether to call your tool at all.
+This reframes tool design. The tool description isn't just documentation — it's the signal Claude uses to decide whether to call your tool at all.
 
 ## Why Two Layers?
 
 The first design decision was how many tools to expose and at what level of abstraction.
 
-I chose not to build a single `analyze_query` tool that accomplish everything. Instead, I built two layers:
+I chose not to build a single `analyze_query` tool that accomplishes everything. Instead, I built two layers:
 
 **Layer 1 — Direct database tools:**
 - `execute_query` — run arbitrary SQL
@@ -44,9 +44,7 @@ I chose not to build a single `analyze_query` tool that accomplish everything. I
 **Layer 2 — AI pipeline:**
 - `analyze_query` — run the full SQL-Surgeon LangGraph pipeline: EXPLAIN → identify issues → generate advice → review advice → optional benchmark
 
-The reasoning: not every question needs the full AI pipeline. "What columns does this table have?" doesn't need a multi-step LangGraph agent. "Why is this query slow?" does. Giving Claude both layers means it can pick the right tool for the cost and complexity of the question.
-
-Single "do everything" tools force the AI to always run the expensive path. Separate tools let Claude make the tradeoff itself — and let it discover what to look at (`list_tables`, `get_slow_queries`) before committing to the expensive one.
+The reasoning: not every question needs the full AI pipeline. Asking "what columns does this table have?" shouldn't trigger a multi-step LangGraph agent — it should just call `get_table_schema`. "Why is this query slow?" does need the full pipeline. Giving Claude both layers means trivial questions stay cheap, and expensive tools only get called when they're actually needed.
 
 ## The DDL Auto-Fetch Insight
 
@@ -119,7 +117,7 @@ And a second gate in the review prompt to reject low-selectivity index recommend
 
 </figure>
 
-Before, on an early test dataset (~99.5k rows), the tool flagged the low selectivity in its own explanation and recommended an index anyway. After the fix, on a larger dataset with a different selectivity ratio (~61%), the same rule correctly blocks the index recommendation instead.
+Note: these two screenshots are from different testing sessions on different datasets, not a controlled A/B test — the bug was found on one dataset and the fix was verified on another. But the mechanism is the same in both cases. On the ~99.5k-row dataset (94% match rate), the tool acknowledged the low selectivity in its own explanation but still recommended an index anyway. On a larger dataset with a different selectivity ratio (~61% match rate), the fixed pipeline correctly rejects the index recommendation and redirects to the real problem.
 
 This is the difference between a suggestion generator and an agent that can question whether the problem is being framed correctly. A good DBA doesn't just answer "how do I make this query faster?" — they sometimes push back with "should this query be asking for this much data at all?"
 
@@ -135,11 +133,11 @@ Fix: filter out system queries (extension setup, schema introspection) by defaul
 
 After the fix, the query list revealed the actual expensive application queries:
 
-| Query | Mean time |
-|-------|-----------|
-| `SELECT * FROM title WHERE kind_id = $1 ORDER BY id` | 658ms |
-| `SELECT * FROM title WHERE title ILIKE $1` | 116ms |
-| `SELECT kind_id, COUNT(*) FROM title GROUP BY kind_id` | 85ms |
+| Query | Mean time | Why |
+|-------|-----------|-----|
+| `SELECT * FROM title WHERE kind_id = $1 ORDER BY id` | 658ms | Seq scan — no index on `kind_id` |
+| `SELECT * FROM title WHERE title ILIKE $1` | 116ms | `ILIKE` pattern match, no trigram index |
+| `SELECT kind_id, COUNT(*) FROM title GROUP BY kind_id` | 85ms | Full table scan required for the aggregation |
 
 **Bug 2 (open): Schema hallucination**
 
@@ -149,11 +147,17 @@ This is a deeper architectural problem: the advice generation node needs structu
 
 ## What I Learned
 
-**MCP server design is about designing for composability, not designing isolated tools.** Individual tools are building blocks; Claude decides how to compose them at runtime, but only within the combinations my tool boundaries make possible. `get_slow_queries` → `analyze_query` is a workflow Claude can discover only because both tools exist and relate with each other.Designing each tool in isolation produces a feature list; designing the tool surface for composability produces a product.
+### MCP server design is about designing for composability, not designing isolated tools
 
-**Tool descriptions are first-class code.** I spent more time tuning tool descriptions than I expected — and the impact was more visible than most code changes. When I updated `analyze_query`'s description to explicitly say DDL is auto-fetched, Claude's tool selection behavior changed immediately. This is a category of work that doesn't exist in traditional API development.
+Individual tools are building blocks; Claude decides how to compose them at runtime, but only within the combinations my tool boundaries make possible. `get_slow_queries` → `analyze_query` is a workflow Claude can discover only because both tools exist and relate with each other. Designing each tool in isolation produces a feature list; designing the tool surface for composability produces a product.
 
-**LLM-based evaluators need structured features, not raw text.** The selectivity fix wasn't about adding more context to the prompt — the EXPLAIN JSON was already there. The fix was parsing the relevant signal into a number and adding an explicit rule about what to do with it. "The data was there" is not the same as "the model can use it."
+### Tool descriptions are first-class code
+
+I spent more time tuning tool descriptions than I expected — and the impact was more visible than most code changes. When I updated `analyze_query`'s description to explicitly say DDL is auto-fetched, Claude's tool selection behavior changed immediately. This is a category of work that doesn't exist in traditional API development.
+
+### LLM-based evaluators need structured features, not raw text
+
+The selectivity fix wasn't about adding more context to the prompt — the EXPLAIN JSON was already there. The fix was parsing the relevant signal into a number and adding an explicit rule about what to do with it. "The data was there" is not the same as "the model can use it."
 
 ## What's Next
 
@@ -161,7 +165,7 @@ Postgres-mcp is at v0.1.0 — feature-complete for its current scope. The open i
 
 The next project is building an eval framework for SQL-Surgeon: a systematic way to measure whether the pipeline's advice is actually correct, not just syntactically valid. That's a harder problem, and the more interesting one.
 
-If you're working on similar problems — MCP servers, LLM evals, or applied AI in enterprise contexts — I'd love to compare notes. Reach out via [GitHub](https://github.com/RachelHuangZW) or [email](mailto:zhiweih79@gmail.com).
+If you're working on similar problems — MCP servers, LLM evals, or applied AI in enterprise contexts — I'd love to compare notes. Especially interested in hearing from anyone who's built structured validation into an LLM pipeline, or who's shipped MCP servers to production DBAs. Reach out via [GitHub](https://github.com/RachelHuangZW) or [email](mailto:zhiweih79@gmail.com).
 
 ---
 
