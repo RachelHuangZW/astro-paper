@@ -1,0 +1,85 @@
+---
+import { useTranslations } from "@/i18n";
+
+const t = useTranslations(Astro.currentLocale);
+---
+
+<nav
+  id="toc"
+  aria-label={t.post.tableOfContents}
+  class="fixed inset-y-0 start-0 z-10 hidden w-[calc(50%-24rem)] flex-col items-end justify-center pb-40 pe-8 lg:flex"
+>
+  <ul
+    id="toc-list"
+    class="max-h-[70vh] w-56 max-w-full space-y-1 overflow-y-auto text-sm"
+  >
+  </ul>
+</nav>
+
+<script is:inline data-astro-rerun>
+  function initTableOfContents() {
+    const article = document.getElementById("article");
+    const toc = document.getElementById("toc");
+    const tocList = document.getElementById("toc-list");
+    if (!article || !toc || !tocList) return;
+
+    const headings = Array.from(article.querySelectorAll("h2")).filter(
+      h => h.id
+    );
+    tocList.innerHTML = "";
+
+    if (headings.length < 2) {
+      toc.classList.add("hidden");
+      return;
+    }
+    toc.classList.remove("hidden");
+
+    const linkByHeadingId = new Map();
+
+    for (const heading of headings) {
+      const clone = heading.cloneNode(true);
+      clone.querySelector(".heading-link")?.remove();
+      const text = clone.textContent?.trim() ?? "";
+
+      const li = document.createElement("li");
+      const link = document.createElement("a");
+      link.href = "#" + heading.id;
+      link.title = text;
+      link.textContent = text;
+      link.className =
+        "toc-link text-muted-foreground hover:text-foreground block truncate border-e-2 border-transparent pe-3 py-1 transition-colors";
+      li.appendChild(link);
+      tocList.appendChild(li);
+      linkByHeadingId.set(heading.id, link);
+    }
+
+    function setActive(id) {
+      for (const [headingId, link] of linkByHeadingId) {
+        const isActive = headingId === id;
+        link.classList.toggle("text-accent", isActive);
+        link.classList.toggle("border-accent", isActive);
+        link.classList.toggle("font-medium", isActive);
+        link.classList.toggle("text-muted-foreground", !isActive);
+      }
+    }
+
+    const observer = new IntersectionObserver(
+      entries => {
+        const visible = entries
+          .filter(entry => entry.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+
+        if (visible.length > 0) {
+          setActive(visible[0].target.id);
+        }
+      },
+      { rootMargin: "-10% 0px -70% 0px", threshold: 0 }
+    );
+
+    for (const heading of headings) observer.observe(heading);
+
+    setActive(headings[0].id);
+  }
+
+  initTableOfContents();
+</script>

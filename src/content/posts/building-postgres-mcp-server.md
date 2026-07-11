@@ -16,11 +16,9 @@ description: "How I built a Postgres MCP server that connects Claude Desktop to 
 
 ![Architecture diagram: Claude Desktop connects via MCP to the Postgres MCP server, which exposes Layer 1 direct database tools and a Layer 2 LangGraph pipeline with a retry loop between review_advice and generate_advice](assets/postgres-mcp-hero.png)
 
-When I started this project, the goal was simple: wrap an existing SQL optimization pipeline so Claude Desktop could use it. What I ended up building was more than a tool wrapper — it's an MCP server that exposes a complete DBA workflow, including a LangGraph agent that can question whether a query problem is being framed correctly.
+When I started this project, the goal was simple: wrap an existing SQL optimization pipeline so Claude Desktop could use it. What I ended up building was more than a tool wrapper — it's an MCP server that exposes a complete DBA workflow, including a LangGraph pipeline that not only generates optimization advice, but can reject its own recommendations when the evidence doesn't support them.
 
-The project is [postgres-mcp](https://github.com/RachelHuangZW/postgres-mcp), an MCP server that connects Claude Desktop to a PostgreSQL database. It exposes six tools covering a complete DBA workflow: from discovering what's in your database, to understanding slow queries, to running a full AI-powered optimization pipeline. This post is about the design decisions behind it and what real-world testing taught me.
-
-## Table of contents
+The project is [postgres-mcp](https://github.com/RachelHuangZW/postgres-mcp), an MCP server that connects Claude Desktop to a PostgreSQL database. It exposes six tools: from discovering what's in your database, to understanding slow queries, to finally running a full AI-powered optimization pipeline. This post is about the design decisions behind it and what I learned during the whole process.
 
 ## What is MCP?
 
@@ -34,7 +32,7 @@ This changes how you think about tool design. The tool description isn't just do
 
 The first design decision was how many tools to expose and at what level of abstraction.
 
-I could have built a single `analyze_query` tool that did everything. Instead, I built two layers:
+I chose not to build a single `analyze_query` tool that accomplish everything. Instead, I built two layers:
 
 **Layer 1 — Direct database tools:**
 - `execute_query` — run arbitrary SQL
@@ -48,11 +46,11 @@ I could have built a single `analyze_query` tool that did everything. Instead, I
 
 The reasoning: not every question needs the full AI pipeline. "What columns does this table have?" doesn't need a multi-step LangGraph agent. "Why is this query slow?" does. Giving Claude both layers means it can pick the right tool for the cost and complexity of the question.
 
-Single "do everything" tools force the AI to always run the expensive path. Separate tools let Claude make the tradeoff itself.
-
-`get_slow_queries` and `list_tables` also solve a discoverability problem. Before adding them, a user had to already know which query was slow to use `analyze_query`. But in real database operations, the first question is usually _"which queries are slow?"_ — not _"optimize this specific query I already know is slow."_ These two tools turn the workflow from point-in-time queries into a complete conversation.
+Single "do everything" tools force the AI to always run the expensive path. Separate tools let Claude make the tradeoff itself — and let it discover what to look at (`list_tables`, `get_slow_queries`) before committing to the expensive one.
 
 ## The DDL Auto-Fetch Insight
+
+The two-layer split solved cost. The next problem was friction inside Layer 2 itself.
 
 `analyze_query` originally required the user to provide DDL (the `CREATE TABLE` schema) alongside the SQL. This created friction: users often don't have the DDL memorized, and asking them to copy-paste schema definitions breaks the conversational flow.
 
@@ -103,21 +101,39 @@ Second, add an explicit rule to the analysis prompt:
 
 And a second gate in the review prompt to reject low-selectivity index recommendations before they reach the user.
 
-**The result:** Same query, different output. Before: `CREATE INDEX ... WHERE episode_of_id IS NOT NULL`. After: _"the planner is doing a sequential scan, and that's actually correct here — the filter isn't selective. The real issue is the query is fetching over 1.5M rows."_
+**The result:** same question, asked to Claude Desktop before and after the fix.
+
+<figure>
+
+![Claude Desktop response before the selectivity fix: the tool notes that almost all rows match the filter but still recommends creating a partial index](assets/before-selectivity.png)
+
+<figcaption>Before — the filter matches 94,291 of ~99,500 rows, and the tool says so, but still suggests <code>CREATE INDEX ... WHERE episode_of_id IS NOT NULL</code> anyway.</figcaption>
+
+</figure>
+
+<figure>
+
+![Claude Desktop response after the selectivity fix: the tool explains the sequential scan is correct and points at row count as the real issue](assets/after-selectivity.png)
+
+<figcaption>After — the tool correctly explains why a sequential scan is the right plan and redirects the conversation to the actual problem.</figcaption>
+
+</figure>
+
+Before, on an early test dataset (~99.5k rows), the tool flagged the low selectivity in its own explanation and recommended an index anyway. After the fix, on a larger dataset with a different selectivity ratio (~61%), the same rule correctly blocks the index recommendation instead.
 
 This is the difference between a suggestion generator and an agent that can question whether the problem is being framed correctly. A good DBA doesn't just answer "how do I make this query faster?" — they sometimes push back with "should this query be asking for this much data at all?"
 
 ## What Real Testing Revealed
 
-Deploying to Claude Desktop and running actual queries surfaced two bugs that synthetic tests would have missed.
+Two bugs only showed up during real Claude Desktop usage — not in any unit test.
 
 **Bug 1 (fixed): Meta query pollution in `get_slow_queries`**
 
-The first time I tested `get_slow_queries`, the top results were `CREATE EXTENSION pg_stat_statements` (21ms) and schema introspection queries — all generated by my own tools. The list was technically correct but practically useless for diagnosing application performance.
+The first time I tested `get_slow_queries`, the top results were `CREATE EXTENSION pg_stat_statements` (21ms) and schema introspection queries — all generated by my own tools. The list was technically correct but practically useless for diagnosing application level performance.
 
-Fix: filter out system queries by default, with an `include_system_queries=false` default parameter so the behavior can still be overridden.
+Fix: filter out system queries (extension setup, schema introspection) by default, with an `include_system_queries=false` default parameter so the behavior can be overridden.
 
-After the fix, the query list showed what actually matters:
+After the fix, the query list revealed the actual expensive application queries:
 
 | Query | Mean time |
 |-------|-----------|
@@ -133,11 +149,9 @@ This is a deeper architectural problem: the advice generation node needs structu
 
 ## What I Learned
 
-**MCP server design is workflow design, not tool design.** Individual tools are building blocks, but the value is in how they compose. `get_slow_queries` → `analyze_query` is a workflow. `list_tables` → `get_table_schema` → `execute_query` is a workflow. Designing each tool in isolation produces a feature list; designing them together produces a product.
+**MCP server design is about designing for composability, not designing isolated tools.** Individual tools are building blocks; Claude decides how to compose them at runtime, but only within the combinations my tool boundaries make possible. `get_slow_queries` → `analyze_query` is a workflow Claude can discover only because both tools exist and relate with each other.Designing each tool in isolation produces a feature list; designing the tool surface for composability produces a product.
 
 **Tool descriptions are first-class code.** I spent more time tuning tool descriptions than I expected — and the impact was more visible than most code changes. When I updated `analyze_query`'s description to explicitly say DDL is auto-fetched, Claude's tool selection behavior changed immediately. This is a category of work that doesn't exist in traditional API development.
-
-**Real-world testing surfaces a different class of bug.** The selectivity issue and the meta query pollution both required actual Claude Desktop usage to discover. No unit test would have caught either. Testing an AI-powered tool means testing the full conversation, not just the function.
 
 **LLM-based evaluators need structured features, not raw text.** The selectivity fix wasn't about adding more context to the prompt — the EXPLAIN JSON was already there. The fix was parsing the relevant signal into a number and adding an explicit rule about what to do with it. "The data was there" is not the same as "the model can use it."
 
