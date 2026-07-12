@@ -9,6 +9,7 @@ import Footer from "@/components/Footer.astro";
 import Socials from "@/components/Socials.astro";
 import Card from "@/components/Card.astro";
 import LinkButton from "@/components/LinkButton.astro";
+import { slugifyStr } from "@/utils/slugify";
 import { getSortedPosts } from "@/utils/getSortedPosts";
 import { useTranslations } from "@/i18n";
 import config from "@/config";
@@ -33,8 +34,8 @@ const homePath = getRelativeLocaleUrl(locale, "");
     data-home-path={homePath}
     class="app-layout"
   >
-    <section id="hero" class="border-border border-b pt-8 pb-6">
-      <h1 class="my-4 inline-block text-3xl font-bold tracking-tight sm:my-8 sm:text-4xl">
+    <section id="hero" class="border-border border-b pt-6 pb-4">
+      <h1 class="my-2 inline-block text-3xl font-bold tracking-tight sm:my-4 sm:text-4xl">
         Hi, I'm Rachel
       </h1>
 
@@ -45,15 +46,26 @@ const homePath = getRelativeLocaleUrl(locale, "");
         RAG deployments. This is where I share notes, project write-ups, and
         things I'm learning along the way.
       </p>
-      <p class="mt-2">
-        Take a look at the{" "}
+      <p class="mt-2 flex items-center gap-2">
         <LinkButton
           class="hover:text-accent underline decoration-dashed underline-offset-4"
-          href="/posts"
+          href={getRelativeLocaleUrl(
+            locale,
+            `tags/${slugifyStr("Personal Projects")}/`
+          )}
         >
-          posts
-        </LinkButton>{" "}
-        below to get started.
+          Personal Projects
+        </LinkButton>
+        <span aria-hidden="true" class="text-foreground">&bull;</span>
+        <LinkButton
+          class="hover:text-accent underline decoration-dashed underline-offset-4"
+          href={getRelativeLocaleUrl(
+            locale,
+            `tags/${slugifyStr("Career Life")}/`
+          )}
+        >
+          Career Life
+        </LinkButton>
       </p>
       {
         socials.length > 0 && (
@@ -83,7 +95,7 @@ const homePath = getRelativeLocaleUrl(locale, "");
         <section
           id="featured"
           class:list={[
-            "pt-12 pb-6",
+            "pt-8 pb-6",
             { "border-border border-b": recentPosts.length > 0 },
           ]}
         >

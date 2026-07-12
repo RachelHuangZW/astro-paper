@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' --headless --disable-gpu --no-sandbox --window-size=1200,700 --screenshot=/private/tmp/claude-501/-Users-rachel-astro-paper/852ccc42-cb29-4251-af17-7aa671f73878/scratchpad/tag-personal-projects.png --virtual-time-budget=3000 http://localhost:4321/tags/personal-projects/)",
+      "Bash('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' --headless --disable-gpu --no-sandbox --window-size=1200,600 --screenshot=/private/tmp/claude-501/-Users-rachel-astro-paper/852ccc42-cb29-4251-af17-7aa671f73878/scratchpad/tag-simplified.png --virtual-time-budget=3000 http://localhost:4321/tags/personal-projects/)"
+    ]
+  }
+}

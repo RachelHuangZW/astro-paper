@@ -10,6 +10,7 @@ tags:
   - postgresql
   - ai-agent
   - langgraph
+  - Personal Projects
 ogImage: assets/postgres-mcp-hero.png
 description: "How I built a Postgres MCP server that connects Claude Desktop to a full SQL optimization pipeline — and what real-world testing revealed about AI tool design."
 ---

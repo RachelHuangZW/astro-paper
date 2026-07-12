@@ -9,6 +9,7 @@ tags:
   - product
   - enterprise-ai
   - career-notes
+  - Career Life
 description: "I'm two years into my career and four months into running AI workshops for customers. A recent one lined up almost exactly with something I'd just read in The Mom Test — and it changed how I read a room."
 ---
 
