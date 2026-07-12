@@ -34,23 +34,9 @@ const homePath = getRelativeLocaleUrl(locale, "");
     class="app-layout"
   >
     <section id="hero" class="border-border border-b pt-8 pb-6">
-      <h1 class="my-4 inline-block text-4xl font-bold sm:my-8 sm:text-5xl">
+      <h1 class="my-4 inline-block text-3xl font-bold tracking-tight sm:my-8 sm:text-4xl">
         Hi, I'm Rachel
       </h1>
-      <a
-        target="_blank"
-        href={`${import.meta.env.BASE_URL.replace(/\/?$/, "/")}rss.xml`}
-        class="inline-block"
-        aria-label="RSS Feed"
-        title="RSS Feed"
-      >
-        <IconRss
-          width={20}
-          height={20}
-          class="stroke-accent scale-125 stroke-3 rtl:-rotate-90"
-        />
-        <span class="sr-only">RSS Feed</span>
-      </a>
 
       <p>
         I build AI systems where the database side matters. Currently a
@@ -75,7 +61,18 @@ const homePath = getRelativeLocaleUrl(locale, "");
             <div class="me-2 mb-1 whitespace-nowrap sm:mb-0">
               {t.home.socialLinks}:
             </div>
-            <Socials />
+            <div class="flex flex-wrap items-center gap-1">
+              <Socials />
+              <LinkButton
+                href={`${import.meta.env.BASE_URL.replace(/\/?$/, "/")}rss.xml`}
+                class="p-2 hover:rotate-6 sm:p-1"
+                title="RSS Feed"
+                target="_blank"
+              >
+                <IconRss class="inline-block size-6 scale-125 fill-transparent stroke-current stroke-2 opacity-90 rtl:-rotate-90" />
+                <span class="sr-only">RSS Feed</span>
+              </LinkButton>
+            </div>
           </div>
         )
       }
