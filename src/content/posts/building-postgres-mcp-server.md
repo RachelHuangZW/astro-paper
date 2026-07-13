@@ -17,6 +17,8 @@ description: "How I built a Postgres MCP server that connects Claude Desktop to 
 
 ![Architecture diagram: Claude Desktop connects via MCP to the Postgres MCP server, which exposes Layer 1 direct database tools and a Layer 2 LangGraph pipeline with a retry loop between review_advice and generate_advice](assets/postgres-mcp-hero.png)
 
+_Code: [github.com/RachelHuangZW/postgres-mcp](https://github.com/RachelHuangZW/postgres-mcp)_
+
 When I started this project, the goal was simple: wrap an existing SQL optimization pipeline so Claude Desktop could use it. What I ended up building was more interesting — an MCP server that not only exposes a complete DBA workflow, but knows when the question itself is being asked wrong.
 
 The project is [postgres-mcp](https://github.com/RachelHuangZW/postgres-mcp), an MCP server that connects Claude Desktop to a PostgreSQL database. It exposes six tools: from discovering what's in your database, to understanding slow queries, to running a full AI-powered optimization pipeline. This post is about the design decisions behind it and what I learned during the whole process.
@@ -167,7 +169,3 @@ Postgres-mcp is at v0.1.0 — feature-complete for its current scope. The open i
 The next project is building an eval framework for SQL-Surgeon: a systematic way to measure whether the pipeline's advice is actually correct, not just syntactically valid. That's a harder problem, and the more interesting one.
 
 If you're working on similar problems — MCP servers, LLM evals, or applied AI in enterprise contexts — I'd love to compare notes. Especially interested in hearing from anyone who's built structured validation into an LLM pipeline, or who's shipped MCP servers to production DBAs. Reach out via [GitHub](https://github.com/RachelHuangZW) or [email](mailto:zhiweih79@gmail.com).
-
----
-
-_Code: [github.com/RachelHuangZW/postgres-mcp](https://github.com/RachelHuangZW/postgres-mcp)_
