@@ -53,6 +53,7 @@ _The Mom Test_ is written around a founder talking to an individual person. My s
 
 I've only run a handful of these so far, so I'm cautious about calling any of this a settled practice. But a few things I want to do differently:
 
+- **Ask what they're doing, not whether they'd use ours.** The highest-signal question in the book is "what do you do now" — not "would you use this." For workshop preparations, I want to ask sales what the customer's current workaround looks like: a spreadsheet, some clunky internal tool, or nothing at all. That's closer to their real need than anything I'll pick up from a reaction on the day.
 - **Qualify the persona before opening PowerPoint.** Before building the agenda, work with sales to clarify who is in the room. Are they technical architects curious about backend infrastructure, or business leaders focused on business scenarios? If it's the latter, completely invert the playbook: pitch the visual business outcomes first, and leave the technical architecture as a "just-in-time" appendix.
 - **Notice when a room is complimenting instead of arguing.** If people are praising how advanced something is rather than pushing back on the specifics, that's probably a sign it didn't land.
 - **Pay more attention to requested changes than to reactions.** When someone asks to move a product higher on a results page, that's more useful than any amount of "this is impressive," because it's specific enough to actually be wrong, and specific enough to act on.
