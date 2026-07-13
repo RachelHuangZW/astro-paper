@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' --headless --disable-gpu --no-sandbox --window-size=1200,700 --screenshot=/private/tmp/claude-501/-Users-rachel-astro-paper/852ccc42-cb29-4251-af17-7aa671f73878/scratchpad/tag-personal-projects.png --virtual-time-budget=3000 http://localhost:4321/tags/personal-projects/)",
-      "Bash('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' --headless --disable-gpu --no-sandbox --window-size=1200,600 --screenshot=/private/tmp/claude-501/-Users-rachel-astro-paper/852ccc42-cb29-4251-af17-7aa671f73878/scratchpad/tag-simplified.png --virtual-time-budget=3000 http://localhost:4321/tags/personal-projects/)"
+      "Bash('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' --headless --disable-gpu --no-sandbox --window-size=1200,600 --screenshot=/private/tmp/claude-501/-Users-rachel-astro-paper/852ccc42-cb29-4251-af17-7aa671f73878/scratchpad/tag-simplified.png --virtual-time-budget=3000 http://localhost:4321/tags/personal-projects/)",
+      "Bash(npx astro *)",
+      "Bash(command -v nvm >/dev/null 2>&1 && echo \"nvm found\" || echo \"no nvm\"; ls /usr/local/opt/node* 2>/dev/null; which -a node; node -v; ls ~/.nvm/versions/node 2>/dev/null)",
+      "Read(//usr/local/**)"
     ]
   }
 }
